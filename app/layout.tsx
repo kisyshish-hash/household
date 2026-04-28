@@ -5,12 +5,14 @@ import Navigation from "@/components/Navigation";
 import { ThemeProvider } from "@/components/ThemeProvider";
 
 const geist = Geist({ subsets: ["latin"] });
-
 export const metadata: Metadata = {
   title: "홈 오퍼레이션",
   description: "맞벌이 부부를 위한 홈 오퍼레이션",
+  icons: {
+    apple: "/icon-180.png",
+    icon: "/icon-180.png",
+  },
 };
-
 export default function RootLayout({
   children,
 }: Readonly<{
