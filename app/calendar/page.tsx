@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { WeeklyAssignment, FamilyEvent } from '@/lib/types'
 import { getStatusColor, getStatusLabel, formatDate, projectEventDate } from '@/lib/utils'
+import { useAuth } from '@/components/AuthProvider'
 import { ChevronLeft, ChevronRight, X, CheckCircle2, SkipForward, RotateCcw, Pencil, Timer, CalendarDays } from 'lucide-react'
 
 function formatTime(t: string | null | undefined): string {
@@ -32,6 +33,7 @@ type DayData = {
 }
 
 export default function CalendarPage() {
+  const { householdId } = useAuth()
   const today = new Date()
   const [year, setYear] = useState(today.getFullYear())
   const [month, setMonth] = useState(today.getMonth()) // 0-indexed
@@ -48,20 +50,22 @@ export default function CalendarPage() {
   const monthEnd = `${year}-${String(month + 1).padStart(2, '0')}-${new Date(year, month + 1, 0).getDate()}`
 
   const loadData = useCallback(async () => {
+    if (!householdId) return
     setLoading(true)
     const [assignRes, eventRes] = await Promise.all([
       supabase
         .from('weekly_assignments')
         .select('*, house_tasks(*), members(*)')
+        .eq('household_id', householdId)
         .gte('due_date', monthStart)
         .lte('due_date', monthEnd),
       // 매년 반복 행사는 날짜 필터 없이 전체 가져옴 (클라이언트에서 처리)
-      supabase.from('family_events').select('*'),
+      supabase.from('family_events').select('*').eq('household_id', householdId),
     ])
     setAssignments(assignRes.data ?? [])
     setEvents(eventRes.data ?? [])
     setLoading(false)
-  }, [monthStart, monthEnd])
+  }, [householdId, monthStart, monthEnd])
 
   // 행사의 표시 날짜 계산. 음력 행사는 화면 연도의 양력 날짜로 투영한다.
   function getDisplayDate(event: FamilyEvent): string {

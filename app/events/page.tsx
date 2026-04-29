@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { EventPreparation, FamilyEvent } from '@/lib/types'
 import { getStatusColor, getStatusLabel, projectEventDate } from '@/lib/utils'
+import { useAuth } from '@/components/AuthProvider'
 import Link from 'next/link'
 import { Plus, CalendarDays, Clock, Star, MoonStar, CheckCircle2, RotateCcw, SkipForward, PartyPopper } from 'lucide-react'
 
@@ -46,6 +47,7 @@ function fmtLunar(eventDate: string): string {
 }
 
 export default function EventsPage() {
+  const { householdId } = useAuth()
   const [events, setEvents] = useState<FamilyEvent[]>([])
   const [preparations, setPreparations] = useState<EventPreparation[]>([])
   const [form, setForm] = useState(EMPTY_FORM)
@@ -64,13 +66,15 @@ export default function EventsPage() {
     return d.toISOString().split('T')[0]
   })()
 
-  useEffect(() => { loadEvents() }, [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { loadEvents() }, [householdId])
 
   async function loadEvents() {
+    if (!householdId) return
     setLoading(true)
     const [eventRes, prepRes] = await Promise.all([
-      supabase.from('family_events').select('*'),
-      supabase.from('event_preparations').select('*, members(*)').order('due_date'),
+      supabase.from('family_events').select('*').eq('household_id', householdId),
+      supabase.from('event_preparations').select('*, members(*)').eq('household_id', householdId).order('due_date'),
     ])
     setEvents(eventRes.data ?? [])
     setPreparations(prepRes.data ?? [])
@@ -101,6 +105,7 @@ export default function EventsPage() {
     if (!form.event_date) return alert('날짜를 입력해주세요.')
     const payload = {
       ...form,
+      household_id: householdId,
       title: form.title.trim(),
       gift_budget_min: Number(form.gift_budget_min),
       gift_budget_max: Number(form.gift_budget_max),

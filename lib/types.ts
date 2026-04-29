@@ -1,15 +1,26 @@
+export interface Household {
+  id: string
+  name: string
+  invite_code: string
+  owner_user_id: string | null
+  created_at: string
+}
+
 export interface Member {
   id: string
+  household_id: string | null
   name: string
   role: string
   preferred_tasks: string[]
   disliked_tasks: string[]
   weekly_capacity: number
+  auth_user_id: string | null
   created_at: string
 }
 
 export interface HouseTask {
   id: string
+  household_id: string | null
   name: string
   description: string
   frequency: string
@@ -18,6 +29,7 @@ export interface HouseTask {
   estimated_minutes: number
   required_people: number
   is_active: boolean
+  default_assigned_to: string | null
   start_time: string | null  // HH:MM 형식
   end_time: string | null    // HH:MM 형식
   created_at: string
@@ -25,6 +37,7 @@ export interface HouseTask {
 
 export interface WeeklyAssignment {
   id: string
+  household_id: string | null
   week_start: string
   task_id: string
   assigned_to: string
@@ -39,6 +52,7 @@ export interface WeeklyAssignment {
 
 export interface FamilyEvent {
   id: string
+  household_id: string | null
   title: string
   person_name: string
   event_type: string
@@ -54,6 +68,7 @@ export interface FamilyEvent {
 
 export interface EventPreparation {
   id: string
+  household_id: string | null
   event_id: string
   preparation_task: string
   due_date: string
@@ -66,6 +81,7 @@ export interface EventPreparation {
 
 export interface GiftHistory {
   id: string
+  household_id: string | null
   person_name: string
   event_title: string
   gift_item: string
