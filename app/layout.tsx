@@ -23,7 +23,7 @@ export default function RootLayout({
       <body className="bg-amber-50 min-h-screen">
         <ThemeProvider>
           <Navigation />
-          <main className="max-w-4xl mx-auto px-4 py-6 pb-24 md:pb-6">
+          <main className="max-w-4xl mx-auto px-4 py-6 pb-32 md:pb-6">
             {children}
           </main>
         </ThemeProvider>

@@ -18,11 +18,11 @@ const ThemeContext = createContext<ThemeContextValue>({
 const THEME_VARS: Record<Theme, Record<string, string>> = {
   default: {},
   starbucks: {
-    '--color-amber-50':  'oklch(97% 0.03 150)',
-    '--color-amber-100': 'oklch(93% 0.07 150)',
-    '--color-amber-200': 'oklch(87% 0.12 150)',
-    '--color-amber-300': 'oklch(79% 0.16 150)',
-    '--color-amber-400': 'oklch(69% 0.17 150)',
+    '--color-amber-50':  '#f7f3e8',
+    '--color-amber-100': '#ede6d2',
+    '--color-amber-200': '#d8cfb8',
+    '--color-amber-300': '#9bb9a4',
+    '--color-amber-400': '#2f8f64',
     '--color-amber-500': 'oklch(40% 0.13 158)',   // #00704a
     '--color-amber-600': 'oklch(35% 0.12 158)',   // #005f40
     '--color-amber-700': 'oklch(26% 0.09 162)',   // #1e3932
@@ -58,18 +58,18 @@ function applyTheme(t: Theme) {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>('default')
+  const [theme, setThemeState] = useState<Theme>(() => {
+    if (typeof window === 'undefined') return 'default'
+    return (localStorage.getItem('theme') as Theme | null) ?? 'default'
+  })
 
   useEffect(() => {
-    const saved = (localStorage.getItem('theme') as Theme | null) ?? 'default'
-    applyTheme(saved)
-    setThemeState(saved)
-  }, [])
+    applyTheme(theme)
+  }, [theme])
 
   function setTheme(t: Theme) {
     setThemeState(t)
     localStorage.setItem('theme', t)
-    applyTheme(t)
   }
 
   return (

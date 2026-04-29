@@ -5,9 +5,10 @@ import { supabase } from '@/lib/supabase'
 import { WeeklyAssignment, FamilyEvent, Member } from '@/lib/types'
 import { getWeekStart, getStatusColor, getStatusLabel, projectEventDate } from '@/lib/utils'
 import Link from 'next/link'
+import Image from 'next/image'
 import {
   CalendarDays, CheckCircle2, Clock, AlertTriangle,
-  ChevronRight, TrendingUp, ListChecks, PartyPopper, Flame, User, Timer
+  ChevronRight, ListChecks, PartyPopper, Flame, User, Timer, CloudSun, MapPin
 } from 'lucide-react'
 
 // HH:MM → 오전/오후 표기
@@ -31,6 +32,128 @@ function timeRange(start: string | null | undefined, end: string | null | undefi
 
 const DAY_KO = ['일', '월', '화', '수', '목', '금', '토']
 
+const CHEER_MESSAGES = [
+  '오늘도 충분히 잘하고 있어',
+  '네가 있어서 참 좋아',
+  '작은 걸음도 전진이야',
+  '고마워, 늘 애써줘서',
+  '너는 생각보다 더 강해',
+  '지금 이 순간도 의미 있어',
+  '넌 이미 소중한 사람이야',
+  '웃는 너가 제일 예뻐',
+  '여기까지 온 것만으로 대단해',
+  '오늘 하루도 고생 많았어',
+  '네 존재만으로도 빛나',
+  '항상 응원하고 있어',
+  '너는 혼자가 아니야',
+  '넌 잘 해낼 거야',
+  '지금처럼만 해도 충분해',
+  '네가 자랑스러워',
+  '고맙다는 말, 꼭 전하고 싶어',
+  '네 선택을 믿어봐',
+  '오늘도 좋은 하루야',
+  '넌 사랑받기 위해 태어났어',
+  '포기하지 않는 너, 멋있어',
+  '네가 있어 세상이 따뜻해',
+  '힘들 땐 잠시 쉬어도 괜찮아',
+  '너의 속도를 존중해',
+  '네가 해온 모든 노력, 알고 있어',
+  '오늘의 너도 최고야',
+  '웃을 일이 더 많아질 거야',
+  '네 마음을 응원해',
+  '넌 충분히 잘하고 있어',
+  '늘 고마운 사람이야',
+  '오늘도 반짝이는 하루 보내',
+  '네 안의 가능성을 믿어',
+  '네가 있어 행복해',
+  '작은 기쁨도 놓치지 마',
+  '너의 하루를 응원해',
+  '넌 특별한 사람이야',
+  '사랑받고 있다는 걸 기억해',
+  '네가 웃으면 세상이 밝아져',
+  '지금 이대로도 괜찮아',
+  '늘 네 편이야',
+  '네 노력이 곧 빛날 거야',
+  '오늘도 힘내자',
+  '네가 최고야',
+  '고마워, 진심으로',
+  '널 응원하는 사람이 있어',
+  '네 꿈을 향해 한 걸음 더',
+  '지금도 충분히 잘하고 있어',
+  '네 하루가 따뜻하길',
+  '넌 정말 소중해',
+  '오늘도 널 믿어',
+  '네 마음이 평안하길',
+  '너라서 가능한 일이야',
+  '늘 고마운 존재야',
+  '네 미소를 응원해',
+  '사랑받을 자격 충분해',
+  '넌 빛나는 사람이야',
+  '오늘 하루도 화이팅',
+  '네 선택은 틀리지 않아',
+  '네가 있어 다행이야',
+  '넌 이미 충분해',
+  '네 이야기를 응원해',
+  '오늘도 멋지게 살아가고 있어',
+  '넌 가치 있는 사람이야',
+  '네가 있어서 힘이 나',
+  '항상 응원할게',
+  '너의 하루에 웃음이 가득하길',
+  '넌 강한 사람이야',
+  '지금도 잘하고 있어',
+  '네 마음을 아껴줘',
+  '고생했어, 진짜로',
+  '네가 자랑스러워',
+  '오늘도 반짝이자',
+  '넌 충분히 빛나',
+  '네 삶을 응원해',
+  '너라서 좋아',
+  '네가 행복하길 바라',
+  '항상 고마워',
+  '넌 소중한 존재야',
+  '오늘도 좋은 일 생길 거야',
+  '네가 최고야',
+  '네 마음을 믿어봐',
+  '넌 사랑받고 있어',
+  '오늘도 수고했어',
+  '네가 있어 행복해',
+  '넌 잘 해내고 있어',
+  '네 하루를 응원해',
+  '작은 성취도 축하해',
+  '넌 충분히 괜찮아',
+  '네 존재 자체가 선물이야',
+  '오늘도 힘내줘서 고마워',
+  '넌 계속 성장 중이야',
+  '네가 있어서 든든해',
+  '넌 이미 잘하고 있어',
+  '오늘도 웃어보자',
+  '네 마음이 제일 중요해',
+  '넌 멋진 사람이야',
+  '언제나 응원할게',
+  '넌 혼자가 아니야',
+  '네가 행복하면 좋겠어',
+  '오늘도 잘 살아냈어',
+]
+
+type Weather = {
+  status: 'loading' | 'ready' | 'error'
+  temp?: number
+  wind?: number
+  description?: string
+  location: string
+}
+
+function weatherLabel(code: number): string {
+  if (code === 0) return '맑음'
+  if ([1, 2, 3].includes(code)) return '구름 조금'
+  if ([45, 48].includes(code)) return '안개'
+  if ([51, 53, 55, 56, 57].includes(code)) return '이슬비'
+  if ([61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return '비'
+  if ([71, 73, 75, 77, 85, 86].includes(code)) return '눈'
+  if ([95, 96, 99].includes(code)) return '천둥번개'
+  return '날씨'
+}
+
 // YYYY-MM-DD → M월 D일 (요일)
 function formatWithDay(dateStr: string): string {
   const d = new Date(dateStr + 'T00:00:00')
@@ -50,12 +173,17 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   // null = 전체, memberId = 해당 구성원만
   const [selectedMember, setSelectedMember] = useState<string | null>(null)
+  const [weather, setWeather] = useState<Weather>({ status: 'loading', location: '서울' })
+  const [cheerMessage, setCheerMessage] = useState(CHEER_MESSAGES[0])
 
   const weekStart = getWeekStart()
   const today = new Date().toISOString().split('T')[0]
   const currentYear = new Date().getFullYear()
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { loadData() }, [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { loadWeather() }, [])
 
   async function loadData() {
     setLoading(true)
@@ -69,6 +197,42 @@ export default function Dashboard() {
     setAllEvents(eventRes.data ?? [])
     setMembers(memberRes.data ?? [])
     setLoading(false)
+  }
+
+  async function fetchWeather(latitude: number, longitude: number, location: string) {
+    try {
+      const params = new URLSearchParams({
+        latitude: String(latitude),
+        longitude: String(longitude),
+        current: 'temperature_2m,weather_code,wind_speed_10m',
+        timezone: 'auto',
+      })
+      const res = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`)
+      if (!res.ok) throw new Error('weather request failed')
+      const data = await res.json()
+      setWeather({
+        status: 'ready',
+        temp: Math.round(data.current.temperature_2m),
+        wind: Math.round(data.current.wind_speed_10m),
+        description: weatherLabel(data.current.weather_code),
+        location,
+      })
+    } catch {
+      setWeather({ status: 'error', location })
+    }
+  }
+
+  function loadWeather() {
+    if (!navigator.geolocation) {
+      fetchWeather(37.5665, 126.9780, '서울')
+      return
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => fetchWeather(coords.latitude, coords.longitude, '현재 위치'),
+      () => fetchWeather(37.5665, 126.9780, '서울'),
+      { timeout: 5000 }
+    )
   }
 
   async function updateStatus(id: string, status: 'done' | 'skipped') {
@@ -115,12 +279,6 @@ export default function Dashboard() {
   const todayTasks = filteredAssignments.filter(
     (a) => a.due_date === today && a.status === 'pending'
   )
-  const pendingTasks = filteredAssignments.filter((a) => a.status === 'pending')
-  const doneTasks = filteredAssignments.filter((a) => a.status === 'done')
-
-  // 진행률은 전체 기준
-  const allDone = assignments.filter((a) => a.status === 'done').length
-  const progress = assignments.length > 0 ? Math.round((allDone / assignments.length) * 100) : 0
 
   function overdueDays(dueDate: string): number {
     return Math.floor(
@@ -129,13 +287,16 @@ export default function Dashboard() {
     )
   }
 
-  const workload = members.map((m) => {
-    const myTasks = assignments.filter((a) => a.assigned_to === m.id)
-    const done = myTasks.filter((a) => a.status === 'done').length
-    const total = myTasks.length
-    const diffSum = myTasks.reduce((s, a) => s + (a.house_tasks?.difficulty ?? 0), 0)
-    return { member: m, done, total, diffSum }
-  })
+  function showRandomCheer() {
+    setCheerMessage((current) => {
+      if (CHEER_MESSAGES.length === 1) return current
+      let next = current
+      while (next === current) {
+        next = CHEER_MESSAGES[Math.floor(Math.random() * CHEER_MESSAGES.length)]
+      }
+      return next
+    })
+  }
 
   if (loading) return (
     <div className="flex items-center justify-center py-24 text-amber-400 gap-2">
@@ -149,10 +310,29 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-5">
-      {/* 헤더 */}
-      <div>
-        <p className="text-sm text-amber-500 font-medium">{dateLabel}</p>
-        <h1 className="text-2xl font-bold text-gray-800 mt-0.5">안녕하세요</h1>
+      {/* 날씨 */}
+      <div className="rounded-2xl border border-amber-100 bg-white p-4 shadow-sm">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm text-amber-500 font-medium">{dateLabel}</p>
+            <div className="mt-2 flex items-center gap-2 text-gray-800">
+              <CloudSun size={24} className="text-amber-400" />
+              <span className="text-2xl font-bold">
+                {weather.status === 'ready' ? `${weather.temp}°` : weather.status === 'loading' ? '확인 중' : '날씨 정보 없음'}
+              </span>
+            </div>
+            <p className="mt-1 flex items-center gap-1 text-xs text-gray-400">
+              <MapPin size={12} />
+              {weather.location}
+              {weather.description && ` · ${weather.description}`}
+              {weather.wind !== undefined && ` · 바람 ${weather.wind}km/h`}
+            </p>
+          </div>
+          <div className="rounded-xl bg-amber-50 px-3 py-2 text-right text-xs text-amber-600">
+            오늘도 집안일은<br />
+            가볍게 하나씩
+          </div>
+        </div>
       </div>
 
       {/* 구성원 필터 */}
@@ -185,64 +365,29 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* 요약 카드 3개 */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className={`rounded-2xl p-4 shadow-sm text-center border ${overdueTasks.length > 0 ? 'bg-red-50 border-red-200' : 'bg-white border-amber-100'}`}>
-          {overdueTasks.length > 0 ? (
-            <>
-              <div className="flex items-center justify-center gap-1">
-                <Flame size={16} className="text-red-500" />
-                <p className="text-2xl font-bold text-red-500">{overdueTasks.length}</p>
-              </div>
-              <p className="text-xs text-red-400 mt-1">기한 초과</p>
-            </>
-          ) : (
-            <>
-              <p className="text-2xl font-bold text-amber-500">{todayTasks.length}</p>
-              <p className="text-xs text-gray-500 mt-1">오늘 할 일</p>
-            </>
-          )}
-        </div>
-        <div className="bg-white rounded-2xl p-4 border border-amber-100 shadow-sm text-center">
-          <p className="text-2xl font-bold text-green-500">{doneTasks.length}</p>
-          <p className="text-xs text-gray-500 mt-1">완료</p>
-        </div>
-        <div className="bg-white rounded-2xl p-4 border border-amber-100 shadow-sm text-center">
-          <p className="text-2xl font-bold text-orange-400">{pendingTasks.length}</p>
-          <p className="text-xs text-gray-500 mt-1">남은 일</p>
-        </div>
-      </div>
-
-      {/* 이번 주 진행률 */}
-      <div className="bg-white rounded-2xl p-4 border border-amber-100 shadow-sm">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2 text-gray-700 font-semibold">
-            <TrendingUp size={16} className="text-amber-500" />
-            이번 주 진행률
+      {/* 가족 응원 */}
+      <div className="rounded-2xl border border-amber-100 bg-white p-4 shadow-sm">
+        <div className="flex items-center gap-4">
+          <button
+            type="button"
+            onClick={showRandomCheer}
+            aria-label="사랑하는 가족들의 응원문구 보기"
+            className="relative flex h-24 w-24 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-amber-50 transition-transform hover:scale-105 active:scale-95"
+          >
+            <Image
+              src="/icon-180.png"
+              width={84}
+              height={84}
+              alt="응원 아이콘"
+              className="h-20 w-20 object-contain"
+            />
+          </button>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-medium text-amber-500">사랑하는 가족들의 응원</p>
+            <p className="mt-1 break-keep text-lg font-bold text-gray-800">{cheerMessage}</p>
+            <p className="mt-2 text-xs text-gray-400">아이콘을 누르면 다른 응원문구가 나와요.</p>
           </div>
-          <span className="text-amber-600 font-bold text-sm">{progress}%</span>
         </div>
-        <div className="h-2.5 bg-amber-100 rounded-full overflow-hidden">
-          <div className="h-full bg-amber-400 rounded-full transition-all duration-500" style={{ width: `${progress}%` }} />
-        </div>
-        {workload.length > 0 && (
-          <div className="mt-4 space-y-3">
-            {workload.map(({ member, done, total, diffSum }) => (
-              <div key={member.id}>
-                <div className="flex justify-between text-xs mb-1">
-                  <span className="font-medium text-gray-700">
-                    {member.name}
-                    <span className="text-gray-400 font-normal ml-1">({member.role})</span>
-                  </span>
-                  <span className="text-gray-400">{done}/{total}건 · 난이도 합계 {diffSum}</span>
-                </div>
-                <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-orange-300 rounded-full" style={{ width: total > 0 ? `${(done / total) * 100}%` : '0%' }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* 오늘 할 일 (기한초과 포함) */}
@@ -262,7 +407,7 @@ export default function Dashboard() {
               </span>
             )}
           </div>
-          <Link href="/tasks" className="flex items-center text-xs text-amber-500 hover:text-amber-600">
+          <Link href="/routines" className="flex items-center text-xs text-amber-500 hover:text-amber-600">
             전체 보기 <ChevronRight size={14} />
           </Link>
         </div>
@@ -375,14 +520,14 @@ export default function Dashboard() {
               </span>
             )}
           </div>
-          <Link href="/tasks" className="flex items-center text-xs text-amber-500 hover:text-amber-600">
+          <Link href="/routines" className="flex items-center text-xs text-amber-500 hover:text-amber-600">
             관리 <ChevronRight size={14} />
           </Link>
         </div>
         {filteredAssignments.length === 0 ? (
           <div className="px-4 py-6 text-center text-sm text-gray-400">
             배정된 루틴이 없습니다.<br />
-            <Link href="/tasks" className="text-amber-500 font-medium hover:underline">루틴 탭에서 자동 배정</Link>을 실행하세요.
+            <Link href="/routines" className="text-amber-500 font-medium hover:underline">루틴 탭에서 자동 배정</Link>을 실행하세요.
           </div>
         ) : (
           <ul className="divide-y divide-amber-50">

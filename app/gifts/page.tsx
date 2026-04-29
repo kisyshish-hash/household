@@ -94,7 +94,7 @@ export default function GiftsPage() {
         </div>
         <button
           onClick={() => { setShowForm(true); setEditId(null); setForm(EMPTY_FORM) }}
-          className="text-sm bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700"
+          className="text-sm bg-amber-400 text-white px-4 py-2 rounded-lg hover:bg-amber-500"
         >
           선물 이력 추가
         </button>
@@ -102,32 +102,32 @@ export default function GiftsPage() {
 
       {/* 추가/수정 폼 */}
       {showForm && (
-        <div className="bg-white rounded-xl p-4 shadow-sm border space-y-3">
+        <div className="bg-white rounded-xl p-4 shadow-sm border border-amber-100 space-y-3">
           <h2 className="font-semibold text-gray-700">{editId ? '선물 이력 수정' : '선물 이력 추가'}</h2>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs text-gray-500 mb-1 block">대상자 *</label>
-              <input className="w-full border rounded-lg px-3 py-2 text-sm" value={form.person_name}
+              <input className="w-full border border-amber-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-300" value={form.person_name}
                 onChange={(e) => setForm({ ...form, person_name: e.target.value })} placeholder="예: 어머니" />
             </div>
             <div>
               <label className="text-xs text-gray-500 mb-1 block">행사명</label>
-              <input className="w-full border rounded-lg px-3 py-2 text-sm" value={form.event_title}
+              <input className="w-full border border-amber-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-300" value={form.event_title}
                 onChange={(e) => setForm({ ...form, event_title: e.target.value })} placeholder="예: 생신" />
             </div>
             <div className="col-span-2">
               <label className="text-xs text-gray-500 mb-1 block">선물</label>
-              <input className="w-full border rounded-lg px-3 py-2 text-sm" value={form.gift_item}
+              <input className="w-full border border-amber-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-300" value={form.gift_item}
                 onChange={(e) => setForm({ ...form, gift_item: e.target.value })} placeholder="예: 고려인삼 세트" />
             </div>
             <div>
               <label className="text-xs text-gray-500 mb-1 block">금액 (원)</label>
-              <input type="number" className="w-full border rounded-lg px-3 py-2 text-sm" value={form.price}
+              <input type="number" className="w-full border border-amber-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-300" value={form.price}
                 onChange={(e) => setForm({ ...form, price: Number(e.target.value) })} />
             </div>
             <div>
               <label className="text-xs text-gray-500 mb-1 block">반응</label>
-              <select className="w-full border rounded-lg px-3 py-2 text-sm" value={form.reaction}
+              <select className="w-full border border-amber-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-300" value={form.reaction}
                 onChange={(e) => setForm({ ...form, reaction: e.target.value })}>
                 <option value="">선택</option>
                 {REACTIONS.map((r) => <option key={r} value={r}>{r}</option>)}
@@ -135,7 +135,7 @@ export default function GiftsPage() {
             </div>
             <div className="col-span-2">
               <label className="text-xs text-gray-500 mb-1 block">메모</label>
-              <input className="w-full border rounded-lg px-3 py-2 text-sm" value={form.note}
+              <input className="w-full border border-amber-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-300" value={form.note}
                 onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="기억해둘 내용" />
             </div>
             <div className="col-span-2 flex items-center gap-2">
@@ -145,10 +145,10 @@ export default function GiftsPage() {
             </div>
           </div>
           <div className="flex gap-2">
-            <button onClick={handleSave} className="flex-1 bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700">
+            <button onClick={handleSave} className="flex-1 bg-amber-400 text-white py-2 rounded-lg text-sm font-medium hover:bg-amber-500">
               {editId ? '수정 저장' : '추가'}
             </button>
-            <button onClick={cancelForm} className="px-4 py-2 border rounded-lg text-sm text-gray-600 hover:bg-gray-50">취소</button>
+            <button onClick={cancelForm} className="px-4 py-2 border border-amber-100 rounded-lg text-sm text-gray-600 hover:bg-amber-50">취소</button>
           </div>
         </div>
       )}
@@ -156,7 +156,7 @@ export default function GiftsPage() {
       {loading ? (
         <div className="text-center py-10 text-gray-400">불러오는 중...</div>
       ) : gifts.length === 0 ? (
-        <div className="text-center py-10 text-gray-400 border rounded-xl bg-white">등록된 선물 이력이 없습니다.</div>
+        <div className="text-center py-10 text-gray-400 border border-amber-100 rounded-xl bg-white">등록된 선물 이력이 없습니다.</div>
       ) : (
         Object.entries(grouped).map(([person, items]) => (
           <div key={person} className="space-y-2">
@@ -165,7 +165,7 @@ export default function GiftsPage() {
               <h2 className="font-semibold text-gray-700">{person}</h2>
             </div>
             {items.map((g) => (
-              <div key={g.id} className="bg-white rounded-xl p-4 shadow-sm border">
+              <div key={g.id} className="bg-white rounded-xl p-4 shadow-sm border border-amber-100">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
