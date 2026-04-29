@@ -84,13 +84,13 @@ export default function MembersPage() {
       </div>
 
       {/* 추가/수정 폼 */}
-      <div className="bg-white rounded-xl p-4 shadow-sm border space-y-3">
+      <div className="bg-white rounded-xl p-4 shadow-sm border border-amber-100 space-y-3">
         <h2 className="font-semibold text-gray-700">{editId ? '구성원 수정' : '구성원 추가'}</h2>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="text-xs text-gray-500 mb-1 block">이름 *</label>
             <input
-              className="w-full border rounded-lg px-3 py-2 text-sm"
+              className="w-full border border-amber-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-300"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               placeholder="예: 김민준"
@@ -99,7 +99,7 @@ export default function MembersPage() {
           <div>
             <label className="text-xs text-gray-500 mb-1 block">역할</label>
             <input
-              className="w-full border rounded-lg px-3 py-2 text-sm"
+              className="w-full border border-amber-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-300"
               value={form.role}
               onChange={(e) => setForm({ ...form, role: e.target.value })}
               placeholder="예: 남편, 아내"
@@ -109,7 +109,7 @@ export default function MembersPage() {
         <div>
           <label className="text-xs text-gray-500 mb-1 block">선호 집안일 (쉼표로 구분)</label>
           <input
-            className="w-full border rounded-lg px-3 py-2 text-sm"
+            className="w-full border border-amber-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-300"
             value={form.preferred_tasks}
             onChange={(e) => setForm({ ...form, preferred_tasks: e.target.value })}
             placeholder="예: 분리수거, 장보기"
@@ -118,7 +118,7 @@ export default function MembersPage() {
         <div>
           <label className="text-xs text-gray-500 mb-1 block">비선호 집안일 (쉼표로 구분)</label>
           <input
-            className="w-full border rounded-lg px-3 py-2 text-sm"
+            className="w-full border border-amber-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-300"
             value={form.disliked_tasks}
             onChange={(e) => setForm({ ...form, disliked_tasks: e.target.value })}
             placeholder="예: 욕실 청소, 빨래 개기"
@@ -130,7 +130,7 @@ export default function MembersPage() {
             type="number"
             min={1}
             max={20}
-            className="w-full border rounded-lg px-3 py-2 text-sm"
+            className="w-full border border-amber-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-300"
             value={form.weekly_capacity}
             onChange={(e) => setForm({ ...form, weekly_capacity: Number(e.target.value) })}
           />
@@ -139,14 +139,14 @@ export default function MembersPage() {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="flex-1 bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
+            className="flex-1 bg-amber-400 text-white py-2 rounded-lg text-sm font-medium hover:bg-amber-500 disabled:opacity-50"
           >
             {saving ? '저장 중...' : editId ? '수정 저장' : '추가'}
           </button>
           {editId && (
             <button
               onClick={cancelEdit}
-              className="px-4 py-2 border rounded-lg text-sm text-gray-600 hover:bg-gray-50"
+              className="px-4 py-2 border border-amber-100 rounded-lg text-sm text-gray-600 hover:bg-amber-50"
             >
               취소
             </button>

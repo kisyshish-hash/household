@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { FamilyEvent } from '@/lib/types'
-import { projectEventDate } from '@/lib/utils'
+import { EventPreparation, FamilyEvent } from '@/lib/types'
+import { getStatusColor, getStatusLabel, projectEventDate } from '@/lib/utils'
 import Link from 'next/link'
-import { Plus, CalendarDays, Clock, Star, MoonStar } from 'lucide-react'
+import { Plus, CalendarDays, Clock, Star, MoonStar, CheckCircle2, RotateCcw, SkipForward, PartyPopper } from 'lucide-react'
 
 const EVENT_TYPES = ['생일', '결혼기념일', '돌잔치', '졸업식', '명절', '기타']
 
@@ -47,11 +47,12 @@ function fmtLunar(eventDate: string): string {
 
 export default function EventsPage() {
   const [events, setEvents] = useState<FamilyEvent[]>([])
+  const [preparations, setPreparations] = useState<EventPreparation[]>([])
   const [form, setForm] = useState(EMPTY_FORM)
   const [editId, setEditId] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState<'upcoming' | 'all'>('upcoming')
+  const [tab, setTab] = useState<'upcoming' | 'checklist' | 'all'>('upcoming')
 
   const today = new Date().toISOString().split('T')[0]
   const currentYear = new Date().getFullYear()
@@ -67,8 +68,12 @@ export default function EventsPage() {
 
   async function loadEvents() {
     setLoading(true)
-    const { data } = await supabase.from('family_events').select('*')
-    setEvents(data ?? [])
+    const [eventRes, prepRes] = await Promise.all([
+      supabase.from('family_events').select('*'),
+      supabase.from('event_preparations').select('*, members(*)').order('due_date'),
+    ])
+    setEvents(eventRes.data ?? [])
+    setPreparations(prepRes.data ?? [])
     setLoading(false)
   }
 
@@ -113,6 +118,11 @@ export default function EventsPage() {
     await loadEvents()
   }
 
+  async function updatePreparationStatus(id: string, status: 'done' | 'skipped' | 'pending') {
+    await supabase.from('event_preparations').update({ status }).eq('id', id)
+    await loadEvents()
+  }
+
   // 다가오는 행사: 오늘 ~ 다음 달 말, 날짜 가까운 순
   const upcomingEvents = events
     .map((e) => ({
@@ -124,6 +134,8 @@ export default function EventsPage() {
 
   // 전체 탭: 원본 event_date 기준 정렬
   const allSorted = [...events].sort((a, b) => a.event_date.localeCompare(b.event_date))
+  const eventById = new Map(events.map((e) => [e.id, e]))
+  const pendingPreparations = preparations.filter((p) => p.status === 'pending').length
 
   const thisMonthLabel = (() => { const d = new Date(); return `${d.getMonth() + 1}월` })()
   const nextMonthLabel = (() => { const d = new Date(); d.setMonth(d.getMonth() + 1); return `${d.getMonth() + 1}월` })()
@@ -131,7 +143,10 @@ export default function EventsPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-800">경조사 / 가정행사</h1>
+        <div className="flex items-center gap-2">
+          <PartyPopper size={22} className="text-amber-500" />
+          <h1 className="text-2xl font-bold text-gray-800">경조사 / 가정행사</h1>
+        </div>
         <button
           onClick={() => { setShowForm(true); setEditId(null); setForm(EMPTY_FORM) }}
           className="flex items-center gap-1.5 text-sm bg-amber-400 text-white px-4 py-2 rounded-xl hover:bg-amber-500 font-medium"
@@ -150,6 +165,17 @@ export default function EventsPage() {
           {upcomingEvents.length > 0 && (
             <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${tab === 'upcoming' ? 'bg-white/30 text-white' : 'bg-amber-100 text-amber-600'}`}>
               {upcomingEvents.length}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => setTab('checklist')}
+          className={`flex-1 py-2 text-sm rounded-lg font-medium transition-colors ${tab === 'checklist' ? 'bg-amber-400 text-white shadow-sm' : 'text-gray-500 hover:text-amber-600'}`}
+        >
+          준비 체크리스트
+          {pendingPreparations > 0 && (
+            <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${tab === 'checklist' ? 'bg-white/30 text-white' : 'bg-amber-100 text-amber-600'}`}>
+              {pendingPreparations}
             </span>
           )}
         </button>
@@ -340,6 +366,80 @@ export default function EventsPage() {
                             className="text-xs px-2 py-1 bg-white border border-amber-200 text-amber-600 rounded-lg hover:bg-amber-50">
                             상세
                           </Link>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+          )}
+
+          {/* 준비 체크리스트 탭 */}
+          {tab === 'checklist' && (
+            <div className="space-y-2">
+              {preparations.length === 0 ? (
+                <div className="bg-white rounded-2xl border border-amber-100 p-8 text-center text-gray-400 text-sm">
+                  아직 생성된 준비 체크리스트가 없습니다.<br />
+                  행사 상세에서 체크리스트를 생성하세요.
+                </div>
+              ) : (
+                preparations.map((p) => {
+                  const event = eventById.get(p.event_id)
+
+                  return (
+                    <div key={p.id} className="bg-white rounded-2xl border border-amber-100 p-4 shadow-sm">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className={`font-medium text-sm ${p.status === 'done' ? 'line-through text-gray-400' : 'text-gray-800'}`}>
+                              {p.preparation_task}
+                            </span>
+                            <span className={`text-xs px-2 py-0.5 rounded-full ${getStatusColor(p.status)}`}>
+                              {getStatusLabel(p.status)}
+                            </span>
+                          </div>
+                          <div className="mt-1 flex items-center gap-2 flex-wrap text-xs text-gray-400">
+                            {event && (
+                              <Link href={`/events/${event.id}`} className="font-medium text-amber-600 hover:text-amber-700">
+                                {event.title}
+                              </Link>
+                            )}
+                            {p.due_date && <span>기한 {fmt(p.due_date)}</span>}
+                            {p.members?.name && <span>담당 {p.members.name}</span>}
+                          </div>
+                          {p.ai_suggestion && (
+                            <p className="mt-1 text-xs text-amber-500 italic">💡 {p.ai_suggestion}</p>
+                          )}
+                        </div>
+                        <div className="flex flex-col gap-1 flex-shrink-0">
+                          {p.status !== 'done' && (
+                            <button
+                              onClick={() => updatePreparationStatus(p.id, 'done')}
+                              className="p-1.5 rounded-lg bg-green-50 text-green-600 hover:bg-green-100"
+                              title="완료"
+                            >
+                              <CheckCircle2 size={15} />
+                            </button>
+                          )}
+                          {p.status !== 'skipped' && p.status !== 'done' && (
+                            <button
+                              onClick={() => updatePreparationStatus(p.id, 'skipped')}
+                              className="p-1.5 rounded-lg bg-gray-50 text-gray-400 hover:bg-gray-100"
+                              title="건너뛰기"
+                            >
+                              <SkipForward size={15} />
+                            </button>
+                          )}
+                          {p.status !== 'pending' && (
+                            <button
+                              onClick={() => updatePreparationStatus(p.id, 'pending')}
+                              className="p-1.5 rounded-lg bg-amber-50 text-amber-500 hover:bg-amber-100"
+                              title="되돌리기"
+                            >
+                              <RotateCcw size={15} />
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>

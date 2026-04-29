@@ -2,9 +2,9 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
-import { WeeklyAssignment, FamilyEvent, Member } from '@/lib/types'
-import { getStatusColor, getStatusLabel, formatDate, getDDayLabel, projectEventDate } from '@/lib/utils'
-import { ChevronLeft, ChevronRight, X, CheckCircle2, SkipForward, RotateCcw, Pencil, Timer } from 'lucide-react'
+import { WeeklyAssignment, FamilyEvent } from '@/lib/types'
+import { getStatusColor, getStatusLabel, formatDate, projectEventDate } from '@/lib/utils'
+import { ChevronLeft, ChevronRight, X, CheckCircle2, SkipForward, RotateCcw, Pencil, Timer, CalendarDays } from 'lucide-react'
 
 function formatTime(t: string | null | undefined): string {
   if (!t) return ''
@@ -37,7 +37,6 @@ export default function CalendarPage() {
   const [month, setMonth] = useState(today.getMonth()) // 0-indexed
   const [assignments, setAssignments] = useState<WeeklyAssignment[]>([])
   const [events, setEvents] = useState<FamilyEvent[]>([])
-  const [members, setMembers] = useState<Member[]>([])
   const [selectedDay, setSelectedDay] = useState<DayData | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -50,7 +49,7 @@ export default function CalendarPage() {
 
   const loadData = useCallback(async () => {
     setLoading(true)
-    const [assignRes, eventRes, memberRes] = await Promise.all([
+    const [assignRes, eventRes] = await Promise.all([
       supabase
         .from('weekly_assignments')
         .select('*, house_tasks(*), members(*)')
@@ -58,15 +57,13 @@ export default function CalendarPage() {
         .lte('due_date', monthEnd),
       // 매년 반복 행사는 날짜 필터 없이 전체 가져옴 (클라이언트에서 처리)
       supabase.from('family_events').select('*'),
-      supabase.from('members').select('*'),
     ])
     setAssignments(assignRes.data ?? [])
     setEvents(eventRes.data ?? [])
-    setMembers(memberRes.data ?? [])
     setLoading(false)
   }, [monthStart, monthEnd])
 
-  // 행사의 이번 달 표시 날짜 계산 (매년 반복이면 현재 연도로 투영, 음력 지원)
+  // 행사의 표시 날짜 계산. 음력 행사는 화면 연도의 양력 날짜로 투영한다.
   function getDisplayDate(event: FamilyEvent): string {
     return projectEventDate(event.event_date, event.is_lunar ?? false, event.repeat_type, year)
   }
@@ -88,6 +85,7 @@ export default function CalendarPage() {
     return `D+${Math.abs(diff)}`
   }
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { loadData() }, [loadData])
 
   // 월 이동
@@ -158,7 +156,7 @@ export default function CalendarPage() {
         ...selectedDay,
         events: events.map((e) =>
           e.id === editingEvent.id ? { ...e, ...editForm } : e
-        ).filter((e) => e.event_date === selectedDay.date) as FamilyEvent[],
+        ).filter((e) => getDisplayDate(e) === selectedDay.date) as FamilyEvent[],
       })
     }
   }
@@ -170,7 +168,10 @@ export default function CalendarPage() {
     <div className="space-y-4">
       {/* 헤더 */}
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-gray-800">{year}년 {month + 1}월</h1>
+        <div className="flex items-center gap-2">
+          <CalendarDays size={22} className="text-amber-500" />
+          <h1 className="text-2xl font-bold text-gray-800">{year}년 {month + 1}월</h1>
+        </div>
         <div className="flex gap-2">
           <button onClick={prevMonth} className="p-2 rounded-xl bg-white border border-amber-100 hover:bg-amber-50 text-gray-600">
             <ChevronLeft size={18} />

@@ -2,7 +2,7 @@ import { HouseTask, Member, AIAssignment } from './types'
 
 /**
  * 음력 월/일 → 해당 연도의 양력 날짜 (YYYY-MM-DD) 변환
- * Intl.DateTimeFormat의 'ca-korean' 달력을 활용해 전체 양력 날짜를 순회하며 매핑
+ * Intl.DateTimeFormat의 'ca-dangi' 달력을 활용해 전체 양력 날짜를 순회하며 매핑
  * 윤달(intercalary month)이 있는 해에는 첫 번째 매칭 날짜를 반환
  */
 export function lunarToSolar(
@@ -11,7 +11,7 @@ export function lunarToSolar(
   lunarDay: number
 ): string | null {
   try {
-    const fmt = new Intl.DateTimeFormat('ko-KR-u-ca-korean', {
+    const fmt = new Intl.DateTimeFormat('ko-KR-u-ca-dangi', {
       month: 'numeric',
       day: 'numeric',
     })
@@ -44,10 +44,10 @@ export function projectEventDate(
   targetYear: number
 ): string {
   const [, mm, dd] = eventDate.split('-')
+  if (isLunar) {
+    return lunarToSolar(targetYear, parseInt(mm), parseInt(dd)) ?? `${targetYear}-${mm}-${dd}`
+  }
   if (repeatType === 'yearly') {
-    if (isLunar) {
-      return lunarToSolar(targetYear, parseInt(mm), parseInt(dd)) ?? `${targetYear}-${mm}-${dd}`
-    }
     return `${targetYear}-${mm}-${dd}`
   }
   return eventDate

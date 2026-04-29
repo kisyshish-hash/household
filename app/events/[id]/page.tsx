@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { FamilyEvent, EventPreparation, Member } from '@/lib/types'
+import { FamilyEvent, EventPreparation } from '@/lib/types'
 import { getDDayLabel, formatDate, getStatusColor, getStatusLabel } from '@/lib/utils'
 
 export default function EventDetailPage() {
@@ -12,27 +12,25 @@ export default function EventDetailPage() {
 
   const [event, setEvent] = useState<FamilyEvent | null>(null)
   const [preparations, setPreparations] = useState<EventPreparation[]>([])
-  const [members, setMembers] = useState<Member[]>([])
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [genResult, setGenResult] = useState<string | null>(null)
 
-  useEffect(() => {
-    loadData()
-  }, [id])
-
-  async function loadData() {
+  const loadData = useCallback(async () => {
     setLoading(true)
-    const [eventRes, prepRes, memberRes] = await Promise.all([
+    const [eventRes, prepRes] = await Promise.all([
       supabase.from('family_events').select('*').eq('id', id).single(),
       supabase.from('event_preparations').select('*, members(*)').eq('event_id', id).order('due_date'),
-      supabase.from('members').select('*'),
     ])
     setEvent(eventRes.data)
     setPreparations(prepRes.data ?? [])
-    setMembers(memberRes.data ?? [])
     setLoading(false)
-  }
+  }, [id])
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadData()
+  }, [loadData])
 
   async function handleGenerateChecklist() {
     setGenerating(true)
@@ -71,7 +69,7 @@ export default function EventDetailPage() {
       </div>
 
       {/* 행사 정보 */}
-      <div className="bg-white rounded-xl p-5 shadow-sm border">
+      <div className="bg-white rounded-xl p-5 shadow-sm border border-amber-100">
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-xl font-bold text-gray-900">{event.title}</h1>
@@ -79,11 +77,11 @@ export default function EventDetailPage() {
               <span>{event.event_type}</span>
               {event.person_name && <span>· {event.person_name}</span>}
               <span>· {formatDate(event.event_date)}</span>
-              <span className="font-bold text-indigo-600">{getDDayLabel(event.event_date)}</span>
+              <span className="font-bold text-amber-600">{getDDayLabel(event.event_date)}</span>
             </div>
           </div>
           <div className="text-right">
-            <div className="text-2xl font-bold text-indigo-600">{getDDayLabel(event.event_date)}</div>
+            <div className="text-2xl font-bold text-amber-600">{getDDayLabel(event.event_date)}</div>
             <div className="text-xs text-gray-400">{'★'.repeat(event.importance)}</div>
           </div>
         </div>
@@ -98,11 +96,11 @@ export default function EventDetailPage() {
       </div>
 
       {/* 체크리스트 생성 버튼 */}
-      <div className="bg-white rounded-xl p-4 shadow-sm border">
+      <div className="bg-white rounded-xl p-4 shadow-sm border border-amber-100">
         <button
           onClick={handleGenerateChecklist}
           disabled={generating}
-          className="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+          className="w-full bg-amber-400 text-white py-3 rounded-lg font-semibold hover:bg-amber-500 disabled:opacity-50 transition-colors"
         >
           {generating ? '생성 중...' : '📋 준비 체크리스트 생성'}
         </button>
@@ -113,12 +111,12 @@ export default function EventDetailPage() {
       <section className="space-y-2">
         <h2 className="font-semibold text-gray-800">준비 체크리스트 ({preparations.length})</h2>
         {preparations.length === 0 ? (
-          <div className="bg-white rounded-xl p-6 text-center text-gray-400 border">
+          <div className="bg-white rounded-xl p-6 text-center text-gray-400 border border-amber-100">
             아직 체크리스트가 없습니다. 위 버튼을 눌러 생성하세요.
           </div>
         ) : (
           preparations.map((p) => (
-            <div key={p.id} className="bg-white rounded-xl p-4 shadow-sm border">
+            <div key={p.id} className="bg-white rounded-xl p-4 shadow-sm border border-amber-100">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -134,7 +132,7 @@ export default function EventDetailPage() {
                     {p.members?.name && <span>담당: {p.members.name}</span>}
                   </div>
                   {p.ai_suggestion && (
-                    <p className="text-xs text-indigo-500 mt-1 italic">💡 {p.ai_suggestion}</p>
+                    <p className="text-xs text-amber-500 mt-1 italic">💡 {p.ai_suggestion}</p>
                   )}
                 </div>
                 <div className="flex flex-col gap-1">
@@ -152,7 +150,7 @@ export default function EventDetailPage() {
                   )}
                   {p.status !== 'pending' && (
                     <button onClick={() => updateStatus(p.id, 'pending')}
-                      className="text-xs px-2 py-1 border rounded text-gray-500 hover:bg-gray-50">
+                      className="text-xs px-2 py-1 border border-amber-100 rounded text-gray-500 hover:bg-amber-50">
                       되돌리기
                     </button>
                   )}

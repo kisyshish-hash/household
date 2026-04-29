@@ -6,7 +6,7 @@ import { HouseTask, WeeklyAssignment, Member } from '@/lib/types'
 import { getWeekStart, formatDate, getStatusColor, getStatusLabel, getDifficultyLabel } from '@/lib/utils'
 import {
   Wand2, Plus, CheckCircle2, SkipForward, RotateCcw,
-  Pencil, Trash2, ChevronDown, ChevronUp, Zap, Clock
+  Pencil, Trash2, ChevronDown, ChevronUp, Zap, Clock, ClipboardList
 } from 'lucide-react'
 
 const FREQ_LABELS: Record<string, string> = {
@@ -58,14 +58,25 @@ export default function TasksPage() {
   const [tab, setTab] = useState<'week' | 'list'>('week')
 
   const weekStart = getWeekStart()
+  const weekEnd = (() => {
+    const d = new Date(weekStart + 'T00:00:00')
+    d.setDate(d.getDate() + 6)
+    return d.toISOString().split('T')[0]
+  })()
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { loadAll() }, [])
 
   async function loadAll() {
     setLoading(true)
     const [taskRes, assignRes, memberRes] = await Promise.all([
       supabase.from('house_tasks').select('*').order('created_at'),
-      supabase.from('weekly_assignments').select('*, house_tasks(*), members(*)').eq('week_start', weekStart),
+      supabase
+        .from('weekly_assignments')
+        .select('*, house_tasks(*), members(*)')
+        .gte('due_date', weekStart)
+        .lte('due_date', weekEnd)
+        .order('due_date'),
       supabase.from('members').select('*'),
     ])
     setTasks(taskRes.data ?? [])
@@ -169,7 +180,10 @@ export default function TasksPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold text-gray-800">홈 루틴 관리</h1>
+      <div className="flex items-center gap-2">
+        <ClipboardList size={22} className="text-amber-500" />
+        <h1 className="text-2xl font-bold text-gray-800">홈 루틴 관리</h1>
+      </div>
 
       {/* 자동 분배 카드 */}
       <div className="bg-amber-400 rounded-2xl p-4 text-white shadow-sm">
