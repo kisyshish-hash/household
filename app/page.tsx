@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { WeeklyAssignment, FamilyEvent, Member } from '@/lib/types'
 import { getWeekStart, getStatusColor, getStatusLabel, projectEventDate } from '@/lib/utils'
+import { useAuth } from '@/components/AuthProvider'
 import Link from 'next/link'
 import Image from 'next/image'
 import {
@@ -167,12 +168,14 @@ function formatShort(dateStr: string): string {
 }
 
 export default function Dashboard() {
+  const { member: linkedMember, householdId } = useAuth()
   const [assignments, setAssignments] = useState<WeeklyAssignment[]>([])
   const [allEvents, setAllEvents] = useState<FamilyEvent[]>([])
   const [members, setMembers] = useState<Member[]>([])
   const [loading, setLoading] = useState(true)
   // null = 전체, memberId = 해당 구성원만
-  const [selectedMember, setSelectedMember] = useState<string | null>(null)
+  const [selectedMember, setSelectedMember] = useState<string | null | undefined>(undefined)
+  const [memberFilterTouched, setMemberFilterTouched] = useState(false)
   const [weather, setWeather] = useState<Weather>({ status: 'loading', location: '서울' })
   const [cheerMessage, setCheerMessage] = useState(CHEER_MESSAGES[0])
 
@@ -181,17 +184,18 @@ export default function Dashboard() {
   const currentYear = new Date().getFullYear()
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { loadData() }, [])
+  useEffect(() => { loadData() }, [householdId])
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { loadWeather() }, [])
 
   async function loadData() {
+    if (!householdId) return
     setLoading(true)
     const [assignRes, eventRes, memberRes] = await Promise.all([
-      supabase.from('weekly_assignments').select('*, house_tasks(*), members(*)').eq('week_start', weekStart),
+      supabase.from('weekly_assignments').select('*, house_tasks(*), members(*)').eq('household_id', householdId).eq('week_start', weekStart),
       // 날짜 필터 없이 전체 조회 → 매년 반복 행사를 클라이언트에서 처리
-      supabase.from('family_events').select('*'),
-      supabase.from('members').select('*'),
+      supabase.from('family_events').select('*').eq('household_id', householdId),
+      supabase.from('members').select('*').eq('household_id', householdId),
     ])
     setAssignments(assignRes.data ?? [])
     setAllEvents(eventRes.data ?? [])
@@ -269,8 +273,9 @@ export default function Dashboard() {
   }
 
   // 구성원 필터 적용
-  const filteredAssignments = selectedMember
-    ? assignments.filter((a) => a.assigned_to === selectedMember)
+  const activeMemberFilter = memberFilterTouched ? (selectedMember ?? null) : (linkedMember?.id ?? null)
+  const filteredAssignments = activeMemberFilter
+    ? assignments.filter((a) => a.assigned_to === activeMemberFilter)
     : assignments
 
   const overdueTasks = filteredAssignments.filter(
@@ -339,9 +344,9 @@ export default function Dashboard() {
       {members.length > 0 && (
         <div className="flex gap-2">
           <button
-            onClick={() => setSelectedMember(null)}
+            onClick={() => { setMemberFilterTouched(true); setSelectedMember(null) }}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium border transition-colors ${
-              selectedMember === null
+              activeMemberFilter === null
                 ? 'bg-amber-400 text-white border-amber-400'
                 : 'bg-white text-gray-500 border-amber-100 hover:border-amber-300'
             }`}
@@ -351,9 +356,9 @@ export default function Dashboard() {
           {members.map((m) => (
             <button
               key={m.id}
-              onClick={() => setSelectedMember(m.id)}
+              onClick={() => { setMemberFilterTouched(true); setSelectedMember(m.id) }}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium border transition-colors ${
-                selectedMember === m.id
+                activeMemberFilter === m.id
                   ? 'bg-amber-400 text-white border-amber-400'
                   : 'bg-white text-gray-500 border-amber-100 hover:border-amber-300'
               }`}
@@ -396,9 +401,9 @@ export default function Dashboard() {
           <div className="flex items-center gap-2 font-semibold text-gray-700">
             <ListChecks size={16} className="text-amber-500" />
             오늘 할 일
-            {selectedMember && (
+            {activeMemberFilter && (
               <span className="text-xs text-amber-500 font-normal">
-                · {members.find((m) => m.id === selectedMember)?.name}
+                · {members.find((m) => m.id === activeMemberFilter)?.name}
               </span>
             )}
             {overdueTasks.length > 0 && (
@@ -514,9 +519,9 @@ export default function Dashboard() {
           <div className="flex items-center gap-2 font-semibold text-gray-700">
             <CalendarDays size={16} className="text-amber-500" />
             이번 주 루틴
-            {selectedMember && (
+            {activeMemberFilter && (
               <span className="text-xs text-amber-500 font-normal">
-                · {members.find((m) => m.id === selectedMember)?.name}
+                · {members.find((m) => m.id === activeMemberFilter)?.name}
               </span>
             )}
           </div>
@@ -554,7 +559,7 @@ export default function Dashboard() {
                       )}
                     </div>
                   </div>
-                  {!selectedMember && (
+                  {!activeMemberFilter && (
                     <span className="text-xs text-gray-400 flex-shrink-0 ml-auto">{a.members?.name}</span>
                   )}
                 </div>

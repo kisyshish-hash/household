@@ -1,20 +1,33 @@
 import { NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { createSupabaseWithAccessToken } from '@/lib/supabase'
 import { getOpenAIClient, safeParseJSON } from '@/lib/openai'
 import { fallbackAssign, getWeekStart } from '@/lib/utils'
 import { AIAssignment, Member, HouseTask, WeeklyAssignment } from '@/lib/types'
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
+    const accessToken = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '')
+    if (!accessToken) return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 })
+    const supabase = createSupabaseWithAccessToken(accessToken)
     const weekStart = getWeekStart()
+
+    const { data: authData } = await supabase.auth.getUser()
+    const { data: linkedMember } = await supabase
+      .from('members')
+      .select('household_id')
+      .eq('auth_user_id', authData.user?.id ?? '')
+      .maybeSingle()
+    const householdId = linkedMember?.household_id
+    if (!householdId) return NextResponse.json({ error: '가족 구성원 연결이 필요합니다.' }, { status: 400 })
 
     // 활성 집안일, 구성원, 최근 4주 이력 병렬 조회
     const [tasksRes, membersRes, historyRes] = await Promise.all([
-      supabase.from('house_tasks').select('*').eq('is_active', true),
-      supabase.from('members').select('*'),
+      supabase.from('house_tasks').select('*').eq('household_id', householdId).eq('is_active', true),
+      supabase.from('members').select('*').eq('household_id', householdId),
       supabase
         .from('weekly_assignments')
         .select('*, house_tasks(name), members(name)')
+        .eq('household_id', householdId)
         .gte('week_start', getWeeksAgo(4))
         .order('week_start', { ascending: false }),
     ])
@@ -27,7 +40,7 @@ export async function POST() {
     const history: WeeklyAssignment[] = historyRes.data ?? []
 
     // 기존 이번 주 배정 삭제 후 재생성
-    await supabase.from('weekly_assignments').delete().eq('week_start', weekStart)
+    await supabase.from('weekly_assignments').delete().eq('household_id', householdId).eq('week_start', weekStart)
 
     let assignments: AIAssignment[]
     let usedAI = false
@@ -66,6 +79,7 @@ ${JSON.stringify(history, null, 2)}
 분배 기준:
 - 난이도 총합이 최대한 비슷해야 함
 - 같은 사람이 같은 일을 계속 맡지 않도록 할 것
+- 집안일에 default_assigned_to가 있으면 해당 구성원을 우선 배정할 것
 - 선호 업무는 우선 반영
 - 비선호 업무는 가능하면 피하되, 완전히 제외하지는 말 것
 - due_date를 포함할 것
@@ -103,13 +117,17 @@ ${JSON.stringify(history, null, 2)}
     }
 
     // weekly_assignments 저장
+    const defaultAssigneeByTaskId = new Map(tasks.map((task) => [task.id, task.default_assigned_to]))
     const rows = assignments.map((a) => ({
       week_start: weekStart,
+      household_id: householdId,
       task_id: a.task_id,
-      assigned_to: a.assigned_to,
+      assigned_to: defaultAssigneeByTaskId.get(a.task_id) || a.assigned_to,
       due_date: a.due_date,
       status: 'pending',
-      ai_reason: a.reason,
+      ai_reason: defaultAssigneeByTaskId.get(a.task_id)
+        ? `주 담당자 지정에 따라 배정`
+        : a.reason,
     }))
 
     const { error: insertError } = await supabase.from('weekly_assignments').insert(rows)

@@ -5,8 +5,10 @@ import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { FamilyEvent, EventPreparation } from '@/lib/types'
 import { getDDayLabel, formatDate, getStatusColor, getStatusLabel } from '@/lib/utils'
+import { useAuth } from '@/components/AuthProvider'
 
 export default function EventDetailPage() {
+  const { householdId, session } = useAuth()
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
 
@@ -17,15 +19,16 @@ export default function EventDetailPage() {
   const [genResult, setGenResult] = useState<string | null>(null)
 
   const loadData = useCallback(async () => {
+    if (!householdId) return
     setLoading(true)
     const [eventRes, prepRes] = await Promise.all([
-      supabase.from('family_events').select('*').eq('id', id).single(),
-      supabase.from('event_preparations').select('*, members(*)').eq('event_id', id).order('due_date'),
+      supabase.from('family_events').select('*').eq('household_id', householdId).eq('id', id).single(),
+      supabase.from('event_preparations').select('*, members(*)').eq('household_id', householdId).eq('event_id', id).order('due_date'),
     ])
     setEvent(eventRes.data)
     setPreparations(prepRes.data ?? [])
     setLoading(false)
-  }, [id])
+  }, [householdId, id])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -38,7 +41,10 @@ export default function EventDetailPage() {
     try {
       const res = await fetch('/api/generate-checklist', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
         body: JSON.stringify({ eventId: id }),
       })
       const data = await res.json()

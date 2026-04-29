@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { GiftHistory } from '@/lib/types'
 import { formatDate } from '@/lib/utils'
+import { useAuth } from '@/components/AuthProvider'
 import { Gift, User, Pencil, Trash2 } from 'lucide-react'
 
 const REACTIONS = ['😍 완전 좋아함', '😊 만족', '😐 보통', '😕 별로', '😞 싫어함']
@@ -19,6 +20,7 @@ const EMPTY_FORM = {
 }
 
 export default function GiftsPage() {
+  const { householdId } = useAuth()
   const [gifts, setGifts] = useState<GiftHistory[]>([])
   const [form, setForm] = useState(EMPTY_FORM)
   const [editId, setEditId] = useState<string | null>(null)
@@ -27,13 +29,16 @@ export default function GiftsPage() {
 
   useEffect(() => {
     loadGifts()
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [householdId])
 
   async function loadGifts() {
+    if (!householdId) return
     setLoading(true)
     const { data } = await supabase
       .from('gift_history')
       .select('*')
+      .eq('household_id', householdId)
       .order('created_at', { ascending: false })
     setGifts(data ?? [])
     setLoading(false)
@@ -60,8 +65,9 @@ export default function GiftsPage() {
   }
 
   async function handleSave() {
+    if (!householdId) return alert('가족 정보를 불러오는 중입니다.')
     if (!form.person_name.trim()) return alert('대상자 이름을 입력해주세요.')
-    const payload = { ...form, person_name: form.person_name.trim(), price: Number(form.price) }
+    const payload = { ...form, household_id: householdId, person_name: form.person_name.trim(), price: Number(form.price) }
     if (editId) {
       await supabase.from('gift_history').update(payload).eq('id', editId)
     } else {

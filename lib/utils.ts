@@ -125,7 +125,9 @@ export function fallbackAssign(
 
   for (const task of tasks) {
     // 현재 부하가 가장 적은 구성원 선택
-    const assignee = members.reduce((a, b) => (loads[a.id] <= loads[b.id] ? a : b))
+    const assignee = task.default_assigned_to
+      ? members.find((m) => m.id === task.default_assigned_to) ?? members.reduce((a, b) => (loads[a.id] <= loads[b.id] ? a : b))
+      : members.reduce((a, b) => (loads[a.id] <= loads[b.id] ? a : b))
 
     // due_date: 선호 요일 또는 이번 주 일요일
     const dueDate = getDueDateForTask(task, weekStart)
@@ -135,7 +137,9 @@ export function fallbackAssign(
       task_name: task.name,
       assigned_to: assignee.id,
       due_date: dueDate,
-      reason: `난이도 기준 자동 배정 (fallback)`,
+      reason: task.default_assigned_to
+        ? `주 담당자 지정에 따라 배정`
+        : `난이도 기준 자동 배정 (fallback)`,
     })
 
     loads[assignee.id] += task.difficulty

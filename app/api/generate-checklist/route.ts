@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { createSupabaseWithAccessToken } from '@/lib/supabase'
 import { getOpenAIClient, safeParseJSON } from '@/lib/openai'
 import { fallbackPreparations } from '@/lib/utils'
 import { AIPreparation } from '@/lib/types'
 
 export async function POST(request: Request) {
   try {
+    const accessToken = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '')
+    if (!accessToken) return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 })
+    const supabase = createSupabaseWithAccessToken(accessToken)
     const { eventId } = await request.json()
     if (!eventId) return NextResponse.json({ error: 'eventId 필요' }, { status: 400 })
 
@@ -18,11 +21,12 @@ export async function POST(request: Request) {
 
     if (eventRes.error) throw eventRes.error
     const event = eventRes.data
+    const householdId = event.household_id
     const gifts = giftRes.data ?? []
     const members = membersRes.data ?? []
 
     // 기존 체크리스트 삭제 후 재생성
-    await supabase.from('event_preparations').delete().eq('event_id', eventId)
+    await supabase.from('event_preparations').delete().eq('household_id', householdId).eq('event_id', eventId)
 
     let preparations: AIPreparation[]
     let usedAI = false
@@ -97,6 +101,7 @@ ${JSON.stringify(members, null, 2)}
     // event_preparations 저장
     const rows = preparations.map((p) => ({
       event_id: eventId,
+      household_id: householdId,
       preparation_task: p.preparation_task,
       due_date: p.due_date,
       assigned_to: p.assigned_to || null,

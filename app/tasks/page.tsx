@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { HouseTask, WeeklyAssignment, Member } from '@/lib/types'
 import { getWeekStart, formatDate, getStatusColor, getStatusLabel, getDifficultyLabel } from '@/lib/utils'
+import { useAuth } from '@/components/AuthProvider'
 import {
   Wand2, Plus, CheckCircle2, SkipForward, RotateCcw,
   Pencil, Trash2, ChevronDown, ChevronUp, Zap, Clock, ClipboardList
@@ -16,6 +17,7 @@ const FREQ_LABELS: Record<string, string> = {
 const EMPTY_TASK_FORM = {
   name: '', description: '', frequency: 'weekly', preferred_day: '',
   difficulty: 2, estimated_minutes: 20, required_people: 1,
+  default_assigned_to: '',
   start_time: '', end_time: '',
 }
 
@@ -44,6 +46,7 @@ function timeRange(start: string | null, end: string | null): string {
 }
 
 export default function TasksPage() {
+  const { householdId, session } = useAuth()
   const [tasks, setTasks] = useState<HouseTask[]>([])
   const [assignments, setAssignments] = useState<WeeklyAssignment[]>([])
   const [members, setMembers] = useState<Member[]>([])
@@ -68,16 +71,18 @@ export default function TasksPage() {
   useEffect(() => { loadAll() }, [])
 
   async function loadAll() {
+    if (!householdId) return
     setLoading(true)
     const [taskRes, assignRes, memberRes] = await Promise.all([
-      supabase.from('house_tasks').select('*').order('created_at'),
+      supabase.from('house_tasks').select('*').eq('household_id', householdId).order('created_at'),
       supabase
         .from('weekly_assignments')
         .select('*, house_tasks(*), members(*)')
+        .eq('household_id', householdId)
         .gte('due_date', weekStart)
         .lte('due_date', weekEnd)
         .order('due_date'),
-      supabase.from('members').select('*'),
+      supabase.from('members').select('*').eq('household_id', householdId),
     ])
     setTasks(taskRes.data ?? [])
     setAssignments(assignRes.data ?? [])
@@ -89,7 +94,10 @@ export default function TasksPage() {
     setAssigning(true)
     setAssignMsg(null)
     try {
-      const res = await fetch('/api/assign-tasks', { method: 'POST' })
+      const res = await fetch('/api/assign-tasks', {
+        method: 'POST',
+        headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
+      })
       const data = await res.json()
       if (data.error) setAssignMsg(`오류: ${data.error}`)
       else {
@@ -101,6 +109,7 @@ export default function TasksPage() {
   }
 
   async function handleAddOneTime() {
+    if (!householdId) return alert('가족 정보를 불러오는 중입니다.')
     if (!oneTimeForm.name.trim()) return alert('루틴 이름을 입력해주세요.')
     if (!oneTimeForm.due_date) return alert('기한을 입력해주세요.')
 
@@ -108,6 +117,7 @@ export default function TasksPage() {
       .from('house_tasks')
       .insert({
         name: oneTimeForm.name.trim(),
+        household_id: householdId,
         frequency: 'once',
         difficulty: Number(oneTimeForm.difficulty),
         estimated_minutes: Number(oneTimeForm.estimated_minutes),
@@ -120,6 +130,7 @@ export default function TasksPage() {
     if (taskErr || !task) return alert('루틴 생성 실패')
 
     await supabase.from('weekly_assignments').insert({
+      household_id: householdId,
       week_start: weekStart,
       task_id: task.id,
       assigned_to: oneTimeForm.assigned_to || null,
@@ -140,6 +151,7 @@ export default function TasksPage() {
       name: t.name, description: t.description ?? '', frequency: t.frequency,
       preferred_day: t.preferred_day ?? '', difficulty: t.difficulty,
       estimated_minutes: t.estimated_minutes, required_people: t.required_people,
+      default_assigned_to: t.default_assigned_to ?? '',
       start_time: t.start_time ?? '', end_time: t.end_time ?? '',
     })
     setShowTaskForm(true)
@@ -148,11 +160,14 @@ export default function TasksPage() {
   function cancelTaskForm() { setEditId(null); setTaskForm(EMPTY_TASK_FORM); setShowTaskForm(false) }
 
   async function handleSaveTask() {
+    if (!householdId) return alert('가족 정보를 불러오는 중입니다.')
     if (!taskForm.name.trim()) return alert('루틴 이름을 입력해주세요.')
     const payload = {
       ...taskForm,
+      household_id: householdId,
       name: taskForm.name.trim(),
       is_active: true,
+      default_assigned_to: taskForm.default_assigned_to || null,
       start_time: taskForm.start_time || null,
       end_time: taskForm.end_time || null,
     }
@@ -175,6 +190,14 @@ export default function TasksPage() {
 
   async function updateStatus(id: string, status: 'done' | 'skipped' | 'pending') {
     await supabase.from('weekly_assignments').update({ status }).eq('id', id)
+    await loadAll()
+  }
+
+  async function updateAssignee(id: string, assignedTo: string) {
+    await supabase
+      .from('weekly_assignments')
+      .update({ assigned_to: assignedTo || null })
+      .eq('id', id)
     await loadAll()
   }
 
@@ -229,8 +252,8 @@ export default function TasksPage() {
           {showOneTimeForm && (
             <div className="bg-white rounded-xl border border-amber-100 p-4 space-y-3">
               <p className="text-xs text-gray-500">이번 주에만 추가되는 루틴입니다.</p>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="col-span-2">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="sm:col-span-2">
                   <label className="text-xs text-gray-500 mb-1 block">이름 *</label>
                   <input className="w-full border border-amber-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-300"
                     value={oneTimeForm.name} onChange={(e) => setOneTimeForm({ ...oneTimeForm, name: e.target.value })}
@@ -251,12 +274,12 @@ export default function TasksPage() {
                 </div>
                 <div>
                   <label className="text-xs text-gray-500 mb-1 block">시작 시간</label>
-                  <input type="time" className="w-full border border-amber-100 rounded-lg px-3 py-2 text-sm"
+                  <input type="time" className="w-full min-w-0 border border-amber-100 rounded-lg px-2 py-2 text-sm"
                     value={oneTimeForm.start_time} onChange={(e) => setOneTimeForm({ ...oneTimeForm, start_time: e.target.value })} />
                 </div>
                 <div>
                   <label className="text-xs text-gray-500 mb-1 block">종료 시간</label>
-                  <input type="time" className="w-full border border-amber-100 rounded-lg px-3 py-2 text-sm"
+                  <input type="time" className="w-full min-w-0 border border-amber-100 rounded-lg px-2 py-2 text-sm"
                     value={oneTimeForm.end_time} onChange={(e) => setOneTimeForm({ ...oneTimeForm, end_time: e.target.value })} />
                 </div>
                 <div>
@@ -270,7 +293,7 @@ export default function TasksPage() {
                     value={oneTimeForm.estimated_minutes} onChange={(e) => setOneTimeForm({ ...oneTimeForm, estimated_minutes: Number(e.target.value) })} />
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row">
                 <button onClick={handleAddOneTime} className="flex-1 bg-amber-400 text-white py-2 rounded-lg text-sm font-medium hover:bg-amber-500">추가</button>
                 <button onClick={() => { setShowOneTimeForm(false); setOneTimeForm(EMPTY_ONE_TIME) }}
                   className="px-4 py-2 border border-amber-100 rounded-lg text-sm text-gray-500 hover:bg-gray-50">취소</button>
@@ -301,8 +324,7 @@ export default function TasksPage() {
                       </span>
                     </div>
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1">
-                      <span className="text-xs text-gray-400">{a.members?.name}</span>
-                      {a.due_date && <span className="text-xs text-gray-400">· {formatDate(a.due_date)}</span>}
+                      {a.due_date && <span className="text-xs text-gray-400">{formatDate(a.due_date)}</span>}
                       {/* 시작/종료 시간 */}
                       {(a.house_tasks?.start_time || a.house_tasks?.end_time) && (
                         <span className="flex items-center gap-0.5 text-xs text-amber-500">
@@ -311,6 +333,20 @@ export default function TasksPage() {
                         </span>
                       )}
                       {a.house_tasks && <span className="text-xs text-gray-400">· 난이도 {getDifficultyLabel(a.house_tasks.difficulty)}</span>}
+                    </div>
+                    <div className="mt-2 max-w-48">
+                      <label className="sr-only" htmlFor={`assignee-${a.id}`}>담당자 변경</label>
+                      <select
+                        id={`assignee-${a.id}`}
+                        value={a.assigned_to ?? ''}
+                        onChange={(e) => updateAssignee(a.id, e.target.value)}
+                        className="w-full rounded-lg border border-amber-100 bg-white px-2 py-1.5 text-xs text-gray-600 focus:outline-none focus:border-amber-300"
+                      >
+                        <option value="">담당자 미정</option>
+                        {members.map((m) => (
+                          <option key={m.id} value={m.id}>{m.name}</option>
+                        ))}
+                      </select>
                     </div>
                     {a.ai_reason && <p className="text-xs text-amber-500 italic mt-1">{a.ai_reason}</p>}
                   </div>
@@ -354,13 +390,13 @@ export default function TasksPage() {
           {showTaskForm && (
             <div className="bg-white rounded-xl border border-amber-100 p-4 space-y-3">
               <h2 className="font-semibold text-gray-700 text-sm">{editId ? '루틴 수정' : '루틴 추가'}</h2>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="col-span-2">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="sm:col-span-2">
                   <label className="text-xs text-gray-500 mb-1 block">이름 *</label>
                   <input className="w-full border border-amber-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-300"
                     value={taskForm.name} onChange={(e) => setTaskForm({ ...taskForm, name: e.target.value })} placeholder="예: 분리수거" />
                 </div>
-                <div className="col-span-2">
+                <div className="sm:col-span-2">
                   <label className="text-xs text-gray-500 mb-1 block">설명</label>
                   <input className="w-full border border-amber-100 rounded-lg px-3 py-2 text-sm"
                     value={taskForm.description} onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })} />
@@ -380,15 +416,26 @@ export default function TasksPage() {
                     {['월요일','화요일','수요일','목요일','금요일','토요일','일요일'].map((d) => <option key={d} value={d}>{d}</option>)}
                   </select>
                 </div>
+                <div className="sm:col-span-2">
+                  <label className="text-xs text-gray-500 mb-1 block">주 담당자</label>
+                  <select
+                    className="w-full border border-amber-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-300"
+                    value={taskForm.default_assigned_to}
+                    onChange={(e) => setTaskForm({ ...taskForm, default_assigned_to: e.target.value })}
+                  >
+                    <option value="">자동 배정</option>
+                    {members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                  </select>
+                </div>
                 {/* 시작/종료 시간 */}
                 <div>
                   <label className="text-xs text-gray-500 mb-1 block">시작 시간</label>
-                  <input type="time" className="w-full border border-amber-100 rounded-lg px-3 py-2 text-sm"
+                  <input type="time" className="w-full min-w-0 border border-amber-100 rounded-lg px-2 py-2 text-sm"
                     value={taskForm.start_time} onChange={(e) => setTaskForm({ ...taskForm, start_time: e.target.value })} />
                 </div>
                 <div>
                   <label className="text-xs text-gray-500 mb-1 block">종료 시간</label>
-                  <input type="time" className="w-full border border-amber-100 rounded-lg px-3 py-2 text-sm"
+                  <input type="time" className="w-full min-w-0 border border-amber-100 rounded-lg px-2 py-2 text-sm"
                     value={taskForm.end_time} onChange={(e) => setTaskForm({ ...taskForm, end_time: e.target.value })} />
                 </div>
                 <div>
@@ -402,7 +449,7 @@ export default function TasksPage() {
                     value={taskForm.estimated_minutes} onChange={(e) => setTaskForm({ ...taskForm, estimated_minutes: Number(e.target.value) })} />
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row">
                 <button onClick={handleSaveTask} className="flex-1 bg-amber-400 text-white py-2 rounded-lg text-sm font-medium hover:bg-amber-500">
                   {editId ? '수정 저장' : '추가'}
                 </button>
@@ -422,6 +469,11 @@ export default function TasksPage() {
                       <span className="font-medium text-sm text-gray-800">{t.name}</span>
                       <span className="text-xs text-gray-400">{FREQ_LABELS[t.frequency] ?? t.frequency}</span>
                       {t.preferred_day && <span className="text-xs text-gray-400">{t.preferred_day}</span>}
+                      {t.default_assigned_to && (
+                        <span className="text-xs text-amber-500">
+                          주 담당 {members.find((m) => m.id === t.default_assigned_to)?.name ?? '지정됨'}
+                        </span>
+                      )}
                     </div>
                     <div className="flex flex-wrap items-center gap-x-2 mt-0.5">
                       {/* 시작/종료 시간 */}
